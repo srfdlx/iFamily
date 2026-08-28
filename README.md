@@ -5,11 +5,22 @@ Familien-Aufgabenplaner: Aufgaben zuweisen, Erinnerungen erhalten, gemeinsame Sa
 ## Funktionsumfang (MVP)
 
 - **Aufgaben zuweisen** an ein Familienmitglied, mit Titel, Notiz und optionalem Fälligkeitsdatum
+- **Drei Status wie am Kanban-Board**: Zu erledigen → In Arbeit → Erledigt. Bei „In Arbeit“ wird festgehalten, wer übernommen hat („Mami ist dran“), damit niemand doppelt anfängt. Tippen auf den Kreis schaltet weiter.
+- **Aufgaben bearbeiten und löschen**: Tippen auf eine Aufgabe öffnet alle Felder
 - **Erinnerungen** per Push-Benachrichtigung: entweder zu einer festen Uhrzeit oder mit Vorlaufzeit vor der Fälligkeit
 - **Wiederkehrende Aufgaben** (täglich / wöchentlich / monatlich) – beim Abhaken wird automatisch die nächste Aufgabe erzeugt
 - **Sammellisten** (z. B. Einkaufsliste), die alle Familienmitglieder gemeinsam befüllen und abhaken können
-- **Login per Magic Link** (E-Mail, kein Passwort), danach eine langlebige Sitzung (kein wiederholtes Einloggen nötig)
+- **Login per Code oder Magic Link** (E-Mail, kein Passwort), danach eine langlebige Sitzung (kein wiederholtes Einloggen nötig)
 - **Familien-Beitritt** über einen Einladungscode – beliebig viele Mitglieder möglich
+
+### Warum ein sechsstelliger Code statt nur eines Links
+
+Auf iOS öffnet ein Link aus der Mail-App immer Safari – und eine über „Zum Home-Bildschirm“
+installierte PWA hat einen **eigenen, von Safari getrennten Speicher**. Über den Link wäre man
+also in Safari angemeldet, während die App auf dem Home-Bildschirm ausgeloggt bleibt. Deshalb
+enthält jede Anmeldemail zusätzlich einen sechsstelligen Code, den man direkt in der App eingibt.
+Der Code ist an die E-Mail-Adresse gebunden, nur einmal verwendbar, läuft nach 15 Minuten ab und
+wird nach fünf Fehlversuchen gesperrt.
 
 ## Technik-Stack
 
@@ -33,7 +44,8 @@ public/             Document Root – hierhin zeigt die Domain/Subdomain
   .htaccess         Leitet /api/* an api/index.php, schützt .env/vendor/cron
 cron/
   dispatch-reminders.php   CLI-Skript für fällige Erinnerungen (per Cron aufrufen)
-db/schema.sql       MySQL-Datenbankschema
+db/schema.sql       MySQL-Datenbankschema (Neuinstallation)
+db/migrations/      Änderungen am Schema für bestehende Installationen
 scripts/
   generate-icons.js       Platzhalter-App-Icons erzeugen (Node, keine Abhängigkeiten)
   generate-vapid.php      VAPID-Schlüsselpaar für Web Push erzeugen
@@ -92,6 +104,14 @@ Ohne SMTP-Konfiguration wird der Magic Link stattdessen ins PHP-Error-Log geschr
    ```
    Intervall möglichst 1 Minute (falls vom Hosting nicht erlaubt, alle 5 Minuten – Erinnerungen kommen dann bis zu 5 Minuten später an). Den genauen Serverpfad zeigt der Plesk-Dateimanager an.
 9. `https://<deine-subdomain>` im Browser öffnen. Auf dem iPhone: Safari → Teilen-Symbol → „Zum Home-Bildschirm“. Push-Benachrichtigungen funktionieren auf iOS erst ab iOS 16.4 und nur, wenn die App so installiert wurde (nicht im normalen Safari-Tab).
+
+## Updates einspielen (bestehende Installation)
+
+1. In Plesk unter *Git* die neuen Commits **pullen**.
+2. **Falls im Ordner `db/migrations/` neue Dateien dazugekommen sind**, diese der Reihe nach in
+   phpMyAdmin unter *SQL* ausführen. Sie ändern nur die Struktur und lassen bestehende Daten
+   unangetastet. Bereits eingespielte Migrationen nicht erneut ausführen.
+3. Nur wenn sich `composer.json` geändert hat: Composer im Plesk-Panel erneut ausführen.
 
 ## Offene Punkte für den produktiven Einsatz
 

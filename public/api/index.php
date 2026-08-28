@@ -10,6 +10,7 @@ $route = '/' . trim($_GET['__route'] ?? '', '/');
 $routes = [
     ['POST', '#^/auth/request-link$#', 'auth_request_link'],
     ['POST', '#^/auth/verify$#', 'auth_verify'],
+    ['POST', '#^/auth/verify-code$#', 'auth_verify_code'],
     ['GET', '#^/auth/me$#', 'auth_me'],
 
     ['GET', '#^/family$#', 'family_get'],

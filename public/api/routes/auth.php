@@ -39,11 +39,47 @@ function auth_request_link(PDO $db, array $config, array $params): void
         $userId = (int) $db->lastInsertId();
     }
 
-    $token = create_magic_link($db, (int) $userId, $config);
-    $link = rtrim($config['appUrl'], '/') . '/auth/verify.html?token=' . urlencode($token);
-    send_magic_link($email, $link, $config);
+    $credentials = create_magic_link($db, (int) $userId, $config);
+    $link = rtrim($config['appUrl'], '/') . '/auth/verify.html?token=' . urlencode($credentials['token']);
+    send_magic_link($email, $link, $credentials['code'], $config);
 
     json_response(['ok' => true]);
+}
+
+function auth_verify_code(PDO $db, array $config, array $params): void
+{
+    $body = json_body();
+    $email = strtolower(trim((string) ($body['email'] ?? '')));
+    $code = preg_replace('/\D/', '', (string) ($body['code'] ?? ''));
+
+    if ($email === '' || strlen((string) $code) !== 6) {
+        json_response(['error' => 'Bitte den sechsstelligen Code aus der E-Mail eingeben.'], 400);
+    }
+
+    $userId = consume_login_code($db, $email, (string) $code);
+    if (!$userId) {
+        json_response(['error' => 'Code ist falsch oder abgelaufen. Fordere einen neuen an.'], 400);
+    }
+
+    json_response(build_session_response($db, $userId, $config));
+}
+
+function build_session_response(PDO $db, int $userId, array $config): array
+{
+    $sessionToken = create_session($db, $userId, $config);
+    $stmt = $db->prepare('SELECT id, family_id, email, display_name FROM users WHERE id = ?');
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch();
+
+    return [
+        'sessionToken' => $sessionToken,
+        'user' => [
+            'id' => (int) $user['id'],
+            'familyId' => (int) $user['family_id'],
+            'email' => $user['email'],
+            'displayName' => $user['display_name'],
+        ],
+    ];
 }
 
 function auth_verify(PDO $db, array $config, array $params): void
@@ -55,20 +91,7 @@ function auth_verify(PDO $db, array $config, array $params): void
         json_response(['error' => 'Link ist ungültig oder abgelaufen.'], 400);
     }
 
-    $sessionToken = create_session($db, $userId, $config);
-    $stmt = $db->prepare('SELECT id, family_id, email, display_name FROM users WHERE id = ?');
-    $stmt->execute([$userId]);
-    $user = $stmt->fetch();
-
-    json_response([
-        'sessionToken' => $sessionToken,
-        'user' => [
-            'id' => (int) $user['id'],
-            'familyId' => (int) $user['family_id'],
-            'email' => $user['email'],
-            'displayName' => $user['display_name'],
-        ],
-    ]);
+    json_response(build_session_response($db, $userId, $config));
 }
 
 function auth_me(PDO $db, array $config, array $params): void

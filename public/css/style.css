@@ -8,6 +8,7 @@
   --accent-text: #0f172a;
   --danger: #f87171;
   --ok: #4ade80;
+  --doing: #facc15;
   --border: #334155;
   --radius: 14px;
   color-scheme: dark;
@@ -113,8 +114,54 @@ nav.tabbar button.active { color: var(--accent); }
   color: var(--accent-text);
   background: transparent;
 }
-.checkbox.checked {
+.checkbox.checked,
+.checkbox.status-erledigt {
   background: var(--accent);
+}
+
+/* "In Arbeit": halbvoll gefuellt, damit man den Zwischenstand auf einen Blick sieht */
+.checkbox.status-in_arbeit {
+  border-color: var(--doing);
+  color: var(--doing);
+  background: rgba(250, 204, 21, 0.15);
+  font-size: 0.9rem;
+}
+
+.column-heading {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 18px 2px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.column-heading:first-child { margin-top: 4px; }
+
+.column-count {
+  background: var(--surface-2);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 0.75rem;
+  letter-spacing: 0;
+}
+
+.task-body { cursor: pointer; }
+
+.code-input {
+  font-size: 2rem;
+  letter-spacing: 10px;
+  text-align: center;
+  font-weight: 700;
+  padding: 14px 12px;
+}
+
+button.link.danger { color: var(--danger); }
+
+textarea {
+  resize: vertical;
+  font-family: inherit;
 }
 
 .task-body, .item-body { flex: 1; min-width: 0; }

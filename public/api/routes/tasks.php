@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 const RECURRENCE_RULES = ['taeglich', 'woechentlich', 'monatlich'];
 const REMIND_MODES = ['fest', 'vorlauf'];
+const TASK_STATUSES = ['offen', 'in_arbeit', 'erledigt'];
 
 function normalize_datetime(?string $value): ?string
 {
@@ -68,7 +69,7 @@ function tasks_list(PDO $db, array $config, array $params): void
 {
     $user = require_auth($db);
     $status = $_GET['status'] ?? null;
-    $status = in_array($status, ['offen', 'erledigt'], true) ? $status : null;
+    $status = in_array($status, TASK_STATUSES, true) ? $status : null;
     $assignedToMe = ($_GET['assignedTo'] ?? null) === 'me';
 
     $conditions = ['family_id = ?'];
@@ -83,8 +84,9 @@ function tasks_list(PDO $db, array $config, array $params): void
     }
 
     $stmt = $db->prepare(
-        'SELECT id, title, notes, created_by, assigned_to, status, due_at, remind_mode, remind_at,
-                remind_lead_minutes, recurrence_rule, recurrence_interval, completed_at, created_at
+        'SELECT id, title, notes, created_by, assigned_to, status, started_at, started_by, due_at,
+                remind_mode, remind_at, remind_lead_minutes, recurrence_rule, recurrence_interval,
+                completed_at, created_at
          FROM tasks WHERE ' . implode(' AND ', $conditions) . '
          ORDER BY (due_at IS NULL), due_at ASC, created_at DESC'
     );
@@ -144,11 +146,27 @@ function tasks_update(PDO $db, array $config, array $params): void
         $bind[] = $body['assignedTo'] ? (int) $body['assignedTo'] : null;
     }
     if (array_key_exists('status', $body)) {
-        $newStatus = $body['status'] === 'erledigt' ? 'erledigt' : 'offen';
+        $newStatus = in_array($body['status'], TASK_STATUSES, true) ? $body['status'] : 'offen';
+        $now = (new DateTimeImmutable())->format('Y-m-d H:i:s');
+
         $fields[] = 'status = ?';
         $bind[] = $newStatus;
         $fields[] = 'completed_at = ?';
-        $bind[] = $newStatus === 'erledigt' ? (new DateTimeImmutable())->format('Y-m-d H:i:s') : null;
+        $bind[] = $newStatus === 'erledigt' ? $now : null;
+
+        // "In Arbeit" haelt fest, wer das Thema uebernommen hat - damit sieht
+        // die Familie, dass sich schon jemand darum kuemmert.
+        if ($newStatus === 'in_arbeit') {
+            if ($existing['status'] !== 'in_arbeit') {
+                $fields[] = 'started_at = ?';
+                $bind[] = $now;
+                $fields[] = 'started_by = ?';
+                $bind[] = $user['id'];
+            }
+        } elseif ($newStatus === 'offen') {
+            $fields[] = 'started_at = NULL';
+            $fields[] = 'started_by = NULL';
+        }
     }
     if (
         array_key_exists('dueAt', $body) || array_key_exists('remindMode', $body)

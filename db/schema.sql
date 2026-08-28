@@ -23,11 +23,14 @@ CREATE TABLE IF NOT EXISTS magic_links (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id INT UNSIGNED NOT NULL,
   token_hash CHAR(64) NOT NULL,
+  code_hash CHAR(64) NULL,
+  attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
   expires_at DATETIME NOT NULL,
   used_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_magic_links_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  INDEX idx_magic_links_token (token_hash)
+  INDEX idx_magic_links_token (token_hash),
+  INDEX idx_magic_links_code (code_hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -47,7 +50,9 @@ CREATE TABLE IF NOT EXISTS tasks (
   notes VARCHAR(2000) NULL,
   created_by INT UNSIGNED NOT NULL,
   assigned_to INT UNSIGNED NULL,
-  status ENUM('offen', 'erledigt') NOT NULL DEFAULT 'offen',
+  status ENUM('offen', 'in_arbeit', 'erledigt') NOT NULL DEFAULT 'offen',
+  started_at DATETIME NULL,
+  started_by INT UNSIGNED NULL,
   due_at DATETIME NULL,
   remind_mode ENUM('fest', 'vorlauf') NULL,
   remind_at DATETIME NULL,
@@ -62,6 +67,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   CONSTRAINT fk_tasks_family FOREIGN KEY (family_id) REFERENCES families(id) ON DELETE CASCADE,
   CONSTRAINT fk_tasks_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_tasks_assigned_to FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT fk_tasks_started_by FOREIGN KEY (started_by) REFERENCES users(id) ON DELETE SET NULL,
   CONSTRAINT fk_tasks_parent FOREIGN KEY (parent_task_id) REFERENCES tasks(id) ON DELETE SET NULL,
   INDEX idx_tasks_family (family_id),
   INDEX idx_tasks_remind_at (remind_at, reminder_sent_at)
