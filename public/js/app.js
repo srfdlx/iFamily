@@ -136,18 +136,16 @@
 
     document.getElementById('login-form').onsubmit = async (event) => {
       event.preventDefault();
+      const payload = {
+        email: document.getElementById('email').value,
+        displayName: document.getElementById('name').value,
+        inviteCode: document.getElementById('invite').value
+      };
       state.busy = true;
       state.loginError = null;
       render();
       try {
-        await api('/auth/request-link', {
-          method: 'POST',
-          body: JSON.stringify({
-            email: document.getElementById('email').value,
-            displayName: document.getElementById('name').value,
-            inviteCode: document.getElementById('invite').value
-          })
-        });
+        await api('/auth/request-link', { method: 'POST', body: JSON.stringify(payload) });
         state.loginStep = 'sent';
       } catch (err) {
         state.loginError = err.message;
@@ -231,6 +229,7 @@
     const assignee = memberName(task.assigned_to);
     const metaParts = [];
     if (task.due_at) metaParts.push(`<span class="${isOverdue(task) ? 'overdue' : ''}">Fällig ${fmtDateTime(task.due_at)}</span>`);
+    if (task.remind_at && task.status === 'offen') metaParts.push('🔔 ' + fmtDateTime(task.remind_at));
     if (assignee) metaParts.push(escapeHtml(assignee));
     if (task.recurrence_rule) metaParts.push('🔁 ' + recurrenceLabel(task.recurrence_rule));
     return `
