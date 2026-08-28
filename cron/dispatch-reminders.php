@@ -6,12 +6,17 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../public/api/bootstrap.php';
 
+// PHP-Zeit statt SQL NOW() verwenden: so entscheidet immer dieselbe, explizit
+// auf Europe/Zurich gesetzte Uhr (siehe bootstrap.php) - unabhaengig davon,
+// in welcher Zeitzone der Datenbankserver selbst laeuft.
+$now = (new DateTimeImmutable())->format('Y-m-d H:i:s');
+
 $stmt = $db->prepare(
     "SELECT id, family_id, title, assigned_to, due_at
      FROM tasks
-     WHERE status = 'offen' AND remind_at IS NOT NULL AND remind_at <= NOW() AND reminder_sent_at IS NULL"
+     WHERE status = 'offen' AND remind_at IS NOT NULL AND remind_at <= ? AND reminder_sent_at IS NULL"
 );
-$stmt->execute();
+$stmt->execute([$now]);
 $dueTasks = $stmt->fetchAll();
 
 foreach ($dueTasks as $task) {
@@ -35,7 +40,7 @@ foreach ($dueTasks as $task) {
         send_to_user($db, $userId, $payload, $config);
     }
 
-    $db->prepare('UPDATE tasks SET reminder_sent_at = NOW() WHERE id = ?')->execute([$task['id']]);
+    $db->prepare('UPDATE tasks SET reminder_sent_at = ? WHERE id = ?')->execute([$now, $task['id']]);
 }
 
 echo 'Verarbeitet: ' . count($dueTasks) . " Erinnerung(en)\n";
