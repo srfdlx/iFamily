@@ -1,0 +1,19 @@
+RewriteEngine On
+
+# Authorization-Header fuer PHP verfuegbar machen (manche Hosting-Setups filtern ihn sonst weg)
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# /api/* auf den PHP-Router leiten, echte Dateien/Ordner ausnehmen
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^api/(.*)$ api/index.php?__route=$1 [QSA,L]
+
+# Absicherung, falls .env/vendor/cron versehentlich im Dokumentenstamm landen
+RewriteRule ^(vendor|cron)/ - [F,L]
+
+<FilesMatch "^\.env">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^composer\.(json|lock)$">
+    Require all denied
+</FilesMatch>

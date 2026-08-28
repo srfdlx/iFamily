@@ -13,15 +13,39 @@ Familien-Aufgabenplaner: Aufgaben zuweisen, Erinnerungen erhalten, gemeinsame Sa
 
 ## Technik-Stack
 
-- Backend: Node.js + Express, MySQL/MariaDB (`mysql2`)
+- Backend: PHP 8+ (kein Framework, schlanker eigener Router), MySQL/MariaDB (PDO)
 - Frontend: PWA ohne Build-Schritt (reines HTML/CSS/JS), installierbar auf iOS via „Zum Home-Bildschirm“
-- Push-Benachrichtigungen: Web Push (VAPID), kein Drittanbieter nötig
-- E-Mail-Versand (Magic Link): SMTP (`nodemailer`)
+- Push-Benachrichtigungen: Web Push (VAPID) über `minishlink/web-push`, kein Drittanbieter nötig
+- E-Mail-Versand (Magic Link): SMTP über `phpmailer/phpmailer`
+- Erinnerungsversand: PHP-CLI-Skript, per Cron/„Geplante Aufgaben“ ausgelöst
+
+Gewählt, weil das Ziel-Hosting (metanet.ch, Shared-Hosting-Plan) PHP + MySQL + Composer + Cron bereitstellt, aber keine Node.js-Runtime.
+
+## Projektstruktur
+
+```
+public/             Document Root – hierhin zeigt die Domain/Subdomain
+  index.html, css/, js/app.js, manifest.json, service-worker.js, icons/, auth/verify.html   PWA-Frontend
+  api/              PHP-Backend
+    index.php       Front-Controller/Router
+    config.php, db.php, auth.php, mailer.php, push.php, helpers.php, env.php
+    routes/         Route-Handler (auth, family, tasks, lists, push)
+  .htaccess         Leitet /api/* an api/index.php, schützt .env/vendor/cron
+cron/
+  dispatch-reminders.php   CLI-Skript für fällige Erinnerungen (per Cron aufrufen)
+db/schema.sql       MySQL-Datenbankschema
+scripts/
+  generate-icons.js       Platzhalter-App-Icons erzeugen (Node, keine Abhängigkeiten)
+  generate-vapid.php      VAPID-Schlüsselpaar für Web Push erzeugen
+composer.json       PHP-Abhängigkeiten (web-push, phpmailer)
+```
+
+`vendor/`, `.env` und `cron/` liegen bewusst **ausserhalb** von `public/` (dem Document Root) und sind damit vom Browser aus nicht erreichbar.
 
 ## Lokales Setup
 
 ```bash
-npm install
+composer install
 cp .env.example .env
 # .env ausfüllen (siehe unten)
 
@@ -30,12 +54,14 @@ mysql -u root -p -e "CREATE DATABASE ifamily CHARACTER SET utf8mb4;"
 mysql -u root -p ifamily < db/schema.sql
 
 # VAPID-Schlüssel für Web Push erzeugen und in .env eintragen
-npm run generate-vapid
+php scripts/generate-vapid.php
 
-npm run dev
+# Lokalen PHP-Server im Document Root starten
+php -S localhost:3000 -t public
 ```
 
-Die App läuft danach auf `http://localhost:3000`.
+Die App läuft danach auf `http://localhost:3000`. Für die Erinnerungen lokal testen:
+`php cron/dispatch-reminders.php` manuell aufrufen (auf dem Server übernimmt das ein Cron-Job, siehe unten).
 
 ### Wichtige `.env`-Variablen
 
@@ -44,60 +70,31 @@ Die App läuft danach auf `http://localhost:3000`.
 | `APP_URL` | Öffentliche URL der App (wird in Magic-Link-E-Mails verwendet) |
 | `DB_*` | MySQL-Zugangsdaten |
 | `SMTP_*`, `MAIL_FROM` | SMTP-Zugang für den Versand der Login-E-Mails |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Schlüsselpaar für Web Push (`npm run generate-vapid`) |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Schlüsselpaar für Web Push (`php scripts/generate-vapid.php`) |
 | `SESSION_TTL_DAYS` | Wie lange ein Login gültig bleibt (Standard: 90 Tage) |
 
-Ohne SMTP-Konfiguration wird der Magic Link stattdessen in die Server-Konsole geschrieben (praktisch zum lokalen Testen).
+Ohne SMTP-Konfiguration wird der Magic Link stattdessen ins PHP-Error-Log geschrieben (praktisch zum lokalen Testen).
 
-## Deployment auf metanet.ch
+## Deployment auf metanet.ch (Plesk, ohne SSH)
 
-1. **Node.js-Runtime aktivieren** im metanet.ch-Kundencenter für die gewünschte Domain/Subdomain (z. B. `familie.deinedomain.ch`).
-2. **MySQL-Datenbank anlegen** im Kundencenter, Zugangsdaten notieren.
-3. Projekt per Git auf den Server bringen (metanet.ch unterstützt Git/SSH):
-   ```bash
-   git clone https://github.com/srfdlx/ifamily.git
-   cd ifamily
-   npm install --omit=dev
+1. **Datenbank anlegen:** *Websites & Domains* → *Datenbanken* → *Datenbank hinzufügen*. Zugriffssteuerung: „Nur lokale Verbindungen zulassen“ (App und Datenbank laufen auf demselben Server). Name/Nutzer/Passwort notieren.
+2. **Schema importieren:** bei der Datenbank auf *phpMyAdmin* → Tab *SQL* → Inhalt von `db/schema.sql` einfügen → ausführen.
+3. **Code auf den Server bringen:**
+   - **Git-Erweiterung** (falls unter „Entwicklertools“ vorhanden): Repository hinzufügen → `https://github.com/srfdlx/iFamily.git`. Bei privatem Repo verlangt Plesk Zugangsdaten dafür (z. B. einen GitHub Personal Access Token); alternativ das Repo kurzzeitig auf „öffentlich“ stellen (`.env` ist nicht im Repo, es enthält keine echten Zugangsdaten).
+   - **Oder ZIP-Upload**: auf GitHub *Code* → *Download ZIP*, im Plesk-*Dateimanager* in den Domain-Ordner hochladen und entpacken.
+4. **Composer-Abhängigkeiten installieren:** Icon „PHP Composer“ → `composer.json` im Domain-Ordner auswählen → *Installieren*. Das erzeugt den `vendor/`-Ordner.
+5. **Dokumentenstamm auf `public` setzen:** *Hosting-Einstellungen* der Subdomain → Feld *Dokumentenstamm* auf den Unterordner `public` ändern. So bleiben `.env`, `vendor/` und `cron/` ausserhalb des öffentlich erreichbaren Bereichs. (Ist diese Option in eurer Oberfläche nicht sichtbar, greift ersatzweise der `.htaccess`-Schutz in `public/` – dann müssen alle Ordner trotzdem wie oben beschrieben ins Hosting-Wurzelverzeichnis.)
+6. **`.env`-Datei anlegen:** im Dateimanager im Domain-Wurzelverzeichnis (eine Ebene über `public/`) eine neue Datei `.env` erstellen, Inhalt wie `.env.example`, mit den echten Werten aus Schritt 1, `APP_URL=https://<deine-subdomain>` sowie einem VAPID-Schlüsselpaar (`php scripts/generate-vapid.php`, z. B. über die Plesk-„Geplante Aufgaben“ einmalig ausführen, oder lokal generieren und Werte eintragen).
+7. **HTTPS/SSL aktivieren:** Let's-Encrypt-Button in Plesk für die Subdomain. Zwingend nötig für Web Push und die iOS-Installation als PWA.
+8. **Cron für Erinnerungen einrichten:** *Geplante Aufgaben* → neue Aufgabe → Befehl:
    ```
-4. `.env` auf dem Server anlegen (siehe oben) mit den echten MySQL- und SMTP-Zugangsdaten sowie der öffentlichen `APP_URL` (https).
-5. Schema importieren: `mysql -u USER -p DBNAME < db/schema.sql`
-6. App über die von metanet.ch vorgesehene Node.js-Startmethode starten (z. B. `npm start`, oder gemäss deren Node.js-Hosting-Anleitung mit Passenger/PM2).
-7. **HTTPS ist zwingend** für Web Push und für die iOS-Installation als PWA – auf metanet.ch per kostenlosem SSL-Zertifikat aktivieren.
-8. Auf dem iPhone: Seite in Safari öffnen → Teilen-Symbol → „Zum Home-Bildschirm“. Push-Benachrichtigungen funktionieren auf iOS erst ab iOS 16.4 und nur, wenn die App so installiert wurde (nicht im normalen Safari-Tab).
-
-### Deployment ohne SSH, nur über das Plesk-Kundencenter
-
-Falls kein Terminalzugang eingerichtet ist, funktioniert es komplett über die Weboberfläche:
-
-1. **Datenbank anlegen:** *Websites & Domains* → *Datenbanken* → *Datenbank hinzufügen*. Name, Nutzer und Passwort notieren.
-2. **Schema importieren:** bei der Datenbank auf *phpMyAdmin* klicken → Tab *SQL* → Inhalt von `db/schema.sql` einfügen → *OK*.
-3. **Node.js aktivieren:** *Websites & Domains* → Subdomain auswählen → Symbol *Node.js* → Node.js-Unterstützung aktivieren (Version 18 oder höher wählen).
-   - *Applikationsstamm*: Ordner der Subdomain (z. B. `familie.deinedomain.ch`)
-   - *Startdatei der Applikation*: `server/index.js`
-4. **Code hochladen** – zwei Möglichkeiten:
-   - **Git-Erweiterung** (falls in Plesk vorhanden): *Websites & Domains* → *Git* → Repository hinzufügen → `https://github.com/srfdlx/iFamily.git`. Ist das Repo privat, verlangt Plesk Zugangsdaten dafür (z. B. einen GitHub Personal Access Token); alternativ das Repo kurzzeitig auf „öffentlich“ stellen (es enthält keine echten Zugangsdaten, `.env` ist nicht im Repo).
-   - **ZIP-Upload**: auf GitHub *Code* → *Download ZIP*, dann im Plesk-*Dateimanager* in den Applikationsstamm hochladen und entpacken.
-5. Im Node.js-Panel auf **„NPM installieren"** klicken (entspricht `npm install`).
-6. **`.env`-Datei anlegen**: im Dateimanager im Applikationsstamm eine neue Datei `.env` erstellen, Inhalt wie in `.env.example`, mit den echten Werten aus Schritt 1 sowie `APP_URL=https://<deine-subdomain>`. Für Web Push kann direkt folgendes fertig generiertes Schlüsselpaar eingetragen werden (oder ein eigenes, siehe `npm run generate-vapid`):
+   php /pfad/zu/eurer/domain/cron/dispatch-reminders.php
    ```
-   VAPID_PUBLIC_KEY=BHzqbEJ-MhDQAaIec3B2uyTtTBw_qVdfCOWZPCWk9N0cDu1a4Wb3NDsHEyIhm9nIjj4xM7Zw06SMJlLkJrZ_jTk
-   VAPID_PRIVATE_KEY=l_BcjmDeVlm7HHa40pfFwXWzLHwNGH3eCmXgoilDEY8
-   ```
-7. Im Node.js-Panel auf **„Anwendung neu starten"** klicken.
-8. HTTPS/SSL für die Subdomain aktivieren (Let's-Encrypt-Button in Plesk), dann `https://<deine-subdomain>` im Browser öffnen.
-
-## Projektstruktur
-
-```
-server/           Express-Backend (Auth, API, Scheduler)
-  routes/         API-Routen (auth, family, tasks, lists, push)
-db/schema.sql     MySQL-Datenbankschema
-public/           PWA-Frontend (index.html, app.js, manifest, service worker)
-scripts/          Hilfsskripte (Icon-Generierung)
-```
+   Intervall möglichst 1 Minute (falls vom Hosting nicht erlaubt, alle 5 Minuten – Erinnerungen kommen dann bis zu 5 Minuten später an). Den genauen Serverpfad zeigt der Plesk-Dateimanager an.
+9. `https://<deine-subdomain>` im Browser öffnen. Auf dem iPhone: Safari → Teilen-Symbol → „Zum Home-Bildschirm“. Push-Benachrichtigungen funktionieren auf iOS erst ab iOS 16.4 und nur, wenn die App so installiert wurde (nicht im normalen Safari-Tab).
 
 ## Offene Punkte für den produktiven Einsatz
 
-- Platzhalter-Icons (`public/icons/`) durch ein echtes Logo ersetzen (`npm run generate-icons` als Ausgangspunkt)
+- Platzhalter-Icons (`public/icons/`) durch ein echtes Logo ersetzen (`node scripts/generate-icons.js` als Ausgangspunkt)
 - Rate-Limiting für `/api/auth/request-link` ergänzen, bevor die App öffentlich erreichbar ist
 - Regelmässiges Datenbank-Backup auf metanet.ch einrichten
