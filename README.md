@@ -65,6 +65,27 @@ Ohne SMTP-Konfiguration wird der Magic Link stattdessen in die Server-Konsole ge
 7. **HTTPS ist zwingend** für Web Push und für die iOS-Installation als PWA – auf metanet.ch per kostenlosem SSL-Zertifikat aktivieren.
 8. Auf dem iPhone: Seite in Safari öffnen → Teilen-Symbol → „Zum Home-Bildschirm“. Push-Benachrichtigungen funktionieren auf iOS erst ab iOS 16.4 und nur, wenn die App so installiert wurde (nicht im normalen Safari-Tab).
 
+### Deployment ohne SSH, nur über das Plesk-Kundencenter
+
+Falls kein Terminalzugang eingerichtet ist, funktioniert es komplett über die Weboberfläche:
+
+1. **Datenbank anlegen:** *Websites & Domains* → *Datenbanken* → *Datenbank hinzufügen*. Name, Nutzer und Passwort notieren.
+2. **Schema importieren:** bei der Datenbank auf *phpMyAdmin* klicken → Tab *SQL* → Inhalt von `db/schema.sql` einfügen → *OK*.
+3. **Node.js aktivieren:** *Websites & Domains* → Subdomain auswählen → Symbol *Node.js* → Node.js-Unterstützung aktivieren (Version 18 oder höher wählen).
+   - *Applikationsstamm*: Ordner der Subdomain (z. B. `familie.deinedomain.ch`)
+   - *Startdatei der Applikation*: `server/index.js`
+4. **Code hochladen** – zwei Möglichkeiten:
+   - **Git-Erweiterung** (falls in Plesk vorhanden): *Websites & Domains* → *Git* → Repository hinzufügen → `https://github.com/srfdlx/iFamily.git`. Ist das Repo privat, verlangt Plesk Zugangsdaten dafür (z. B. einen GitHub Personal Access Token); alternativ das Repo kurzzeitig auf „öffentlich“ stellen (es enthält keine echten Zugangsdaten, `.env` ist nicht im Repo).
+   - **ZIP-Upload**: auf GitHub *Code* → *Download ZIP*, dann im Plesk-*Dateimanager* in den Applikationsstamm hochladen und entpacken.
+5. Im Node.js-Panel auf **„NPM installieren"** klicken (entspricht `npm install`).
+6. **`.env`-Datei anlegen**: im Dateimanager im Applikationsstamm eine neue Datei `.env` erstellen, Inhalt wie in `.env.example`, mit den echten Werten aus Schritt 1 sowie `APP_URL=https://<deine-subdomain>`. Für Web Push kann direkt folgendes fertig generiertes Schlüsselpaar eingetragen werden (oder ein eigenes, siehe `npm run generate-vapid`):
+   ```
+   VAPID_PUBLIC_KEY=BHzqbEJ-MhDQAaIec3B2uyTtTBw_qVdfCOWZPCWk9N0cDu1a4Wb3NDsHEyIhm9nIjj4xM7Zw06SMJlLkJrZ_jTk
+   VAPID_PRIVATE_KEY=l_BcjmDeVlm7HHa40pfFwXWzLHwNGH3eCmXgoilDEY8
+   ```
+7. Im Node.js-Panel auf **„Anwendung neu starten"** klicken.
+8. HTTPS/SSL für die Subdomain aktivieren (Let's-Encrypt-Button in Plesk), dann `https://<deine-subdomain>` im Browser öffnen.
+
 ## Projektstruktur
 
 ```
