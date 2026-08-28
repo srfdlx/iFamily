@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Anmeldung – iFamily</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="login-screen">
+    <h1>iFamily</h1>
+    <p id="status" class="subtitle">Du wirst angemeldet …</p>
+  </div>
+  <script>
+    (async function () {
+      const statusEl = document.getElementById('status');
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      if (!token) {
+        statusEl.textContent = 'Kein Login-Link erkannt.';
+        return;
+      }
+      try {
+        const res = await fetch('/api/auth/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          statusEl.textContent = data.error || 'Der Link ist ungültig oder abgelaufen.';
+          return;
+        }
+        localStorage.setItem('ifamily_session', data.sessionToken);
+        localStorage.setItem('ifamily_user', JSON.stringify(data.user));
+        statusEl.textContent = 'Angemeldet! Du wirst weitergeleitet …';
+        window.location.replace('/');
+      } catch (err) {
+        statusEl.textContent = 'Verbindung fehlgeschlagen. Bitte versuche es erneut.';
+      }
+    })();
+  </script>
+</body>
+</html>

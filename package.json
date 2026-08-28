@@ -1,0 +1,23 @@
+{
+  "name": "ifamily",
+  "version": "0.1.0",
+  "description": "Familien-Aufgabenplaner: Tasks zuweisen, erinnern, gemeinsame Sammellisten",
+  "private": true,
+  "type": "commonjs",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "generate-icons": "node scripts/generate-icons.js",
+    "generate-vapid": "node -e \"console.log(require('web-push').generateVAPIDKeys())\""
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-async-errors": "^3.1.1",
+    "mysql2": "^3.11.3",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^9.0.6",
+    "web-push": "^3.6.7"
+  }
+}
