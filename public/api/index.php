@@ -31,6 +31,8 @@ $routes = [
     ['PATCH', '#^/lists/(\d+)/items/(\d+)$#', 'lists_update_item'],
     ['DELETE', '#^/lists/(\d+)/items/(\d+)$#', 'lists_delete_item'],
 
+    ['GET', '#^/sync/version$#', 'sync_version'],
+
     ['GET', '#^/push/public-key$#', 'push_public_key'],
     ['POST', '#^/push/subscribe$#', 'push_subscribe'],
     ['DELETE', '#^/push/subscribe$#', 'push_unsubscribe'],

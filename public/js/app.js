@@ -132,6 +132,18 @@
     return data;
   }
 
+  // Kurze Kennung des Datenstands; null, wenn sie gerade nicht zu holen ist.
+  let syncVersion = null;
+  let syncTimer = null;
+
+  async function currentVersion() {
+    try {
+      return (await api('/sync/version')).version;
+    } catch (err) {
+      return null;
+    }
+  }
+
   function logout() {
     localStorage.removeItem('ifamily_session');
     localStorage.removeItem('ifamily_user');
@@ -141,6 +153,7 @@
   }
 
   async function loadAll() {
+    const version = await currentVersion();
     const [me, family, taskRes, listRes] = await Promise.all([
       api('/auth/me'), api('/family'), api('/tasks'), api('/lists')
     ]);
@@ -148,10 +161,22 @@
     state.family = family;
     state.tasks = taskRes.tasks;
     state.lists = listRes.lists;
+    syncVersion = version;
   }
 
-  const refreshTasks = async () => { state.tasks = (await api('/tasks')).tasks; };
-  const refreshLists = async () => { state.lists = (await api('/lists')).lists; };
+  // Wichtig: die Kennung IMMER vor dem Laden der Daten holen. Andersherum
+  // wuerde eine Aenderung, die genau dazwischen passiert, als bereits bekannt
+  // gelten und nie mehr nachgeladen.
+  const refreshTasks = async () => {
+    const version = await currentVersion();
+    state.tasks = (await api('/tasks')).tasks;
+    syncVersion = version;
+  };
+  const refreshLists = async () => {
+    const version = await currentVersion();
+    state.lists = (await api('/lists')).lists;
+    syncVersion = version;
+  };
 
   // ---------- Farbschema ----------
   function isDark() {
@@ -237,10 +262,6 @@
         <form class="auth-card" id="login-form">
           <label for="email">E-Mail-Adresse</label>
           <input type="email" id="email" required placeholder="du@beispiel.ch" autocomplete="email" />
-          <label for="name">Name (nur beim ersten Mal nötig)</label>
-          <input type="text" id="name" placeholder="Vorname" autocomplete="given-name" />
-          <label for="invite">Einladungscode (nur beim Beitritt zu einer Familie)</label>
-          <input type="text" id="invite" placeholder="z. B. AB12CD34" />
           ${error ? `<p class="error-text">${escapeHtml(error)}</p>` : ''}
           <button type="submit" class="btn btn-primary btn-block" ${busy ? 'disabled' : ''}>${busy ? 'Sende Code …' : 'Anmeldecode senden'}</button>
         </form>
@@ -248,11 +269,7 @@
 
     document.getElementById('login-form').onsubmit = async (event) => {
       event.preventDefault();
-      const payload = {
-        email: document.getElementById('email').value,
-        displayName: document.getElementById('name').value,
-        inviteCode: document.getElementById('invite').value
-      };
+      const payload = { email: document.getElementById('email').value };
       state.login.busy = true;
       state.login.error = null;
       render();
@@ -318,6 +335,7 @@
     renderSidebar();
     renderContent();
     renderOverlays();
+    startSync();
   }
 
   function closeDrawer() {
@@ -843,11 +861,7 @@
               </div>`).join('')}
           </section>
 
-          <section class="panel">
-            <h2>Neue Mitglieder einladen</h2>
-            <div class="invite-code">${escapeHtml(f.inviteCode)}</div>
-            <button class="btn btn-block" id="share-invite">Einladung teilen</button>
-          </section>
+          <p class="hint-text">Wer sich anmelden darf, legt der Server fest (Einstellung <code>ALLOWED_USERS</code>).</p>
 
           <button class="btn btn-block" id="enable-push" style="margin-bottom:8px">${icon('bell', 17)} Erinnerungen aktivieren</button>
           <button class="btn btn-ghost btn-block" id="logout-btn">Abmelden</button>
@@ -856,16 +870,6 @@
   }
 
   function attachAccountDialog() {
-    const f = state.family;
-    document.getElementById('share-invite').onclick = async () => {
-      const text = `Tritt unserer Familie auf iFamily bei! Öffne ${location.origin} und gib den Code ${f.inviteCode} ein.`;
-      if (navigator.share) {
-        try { await navigator.share({ text }); } catch (err) { /* abgebrochen */ }
-      } else {
-        await navigator.clipboard.writeText(text);
-        alert('Einladungstext kopiert.');
-      }
-    };
     document.getElementById('enable-push').onclick = enablePush;
     document.getElementById('logout-btn').onclick = logout;
   }
@@ -913,6 +917,36 @@
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  }
+
+  // ---------- Abgleich zwischen Geraeten ----------
+  // Alle paar Sekunden nur eine kurze Versionskennung holen und die Daten nur
+  // dann nachladen, wenn jemand anders etwas geaendert hat.
+  async function checkForChanges() {
+    if (!state.sessionToken || !state.user) return;
+    if (document.hidden) return;
+    // Nicht dazwischenfunken, solange jemand einen Dialog ausgefuellt hat
+    if (state.dialog) return;
+
+    try {
+      const version = await currentVersion();
+      if (version === null || version === syncVersion) return;
+
+      await refreshTasks();
+      await refreshLists();
+      renderContent();
+      renderSidebar();
+    } catch (err) {
+      // Netzwerkaussetzer einfach beim naechsten Durchgang erneut versuchen
+    }
+  }
+
+  function startSync() {
+    if (syncTimer) clearInterval(syncTimer);
+    syncTimer = setInterval(checkForChanges, 5000);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) checkForChanges();
+    });
   }
 
   // ---------- Push ----------

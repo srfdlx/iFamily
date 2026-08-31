@@ -14,8 +14,10 @@ Familien-Aufgabenplaner: Aufgaben zuweisen, Erinnerungen erhalten, gemeinsame Sa
 - **Erinnerungen** per Push-Benachrichtigung: entweder zu einer festen Uhrzeit oder mit Vorlaufzeit vor der Fälligkeit
 - **Wiederkehrende Aufgaben** (täglich / wöchentlich / monatlich) – beim Abhaken wird automatisch die nächste Aufgabe erzeugt
 - **Sammellisten** (z. B. Einkaufsliste), die alle Familienmitglieder gemeinsam befüllen und abhaken können
-- **Login per Code oder Magic Link** (E-Mail, kein Passwort), danach eine langlebige Sitzung (kein wiederholtes Einloggen nötig)
-- **Familien-Beitritt** über einen Einladungscode – beliebig viele Mitglieder möglich
+- **Login nur mit E-Mail-Adresse** (kein Passwort, kein Name, keine Registrierung), danach eine langlebige Sitzung
+- **Feste Zulassungsliste**: nur die in `ALLOWED_USERS` hinterlegten Adressen bekommen überhaupt einen Code. Beim ersten Login wird der Zugang automatisch angelegt.
+- **Automatischer Abgleich** zwischen Geräten: Änderungen der anderen Person erscheinen nach wenigen Sekunden von selbst, ohne Neuladen
+- **Wöchentliche Erinnerungsmail** mit den offenen Aufgaben je Person
 
 ### Warum ein sechsstelliger Code statt nur eines Links
 
@@ -84,6 +86,7 @@ Die App läuft danach auf `http://localhost:3000`. Für die Erinnerungen lokal t
 | Variable | Bedeutung |
 |---|---|
 | `APP_URL` | Öffentliche URL der App (wird in Magic-Link-E-Mails verwendet) |
+| `ALLOWED_USERS` | Wer sich anmelden darf, z. B. `a@x.ch:Oliver, b@x.ch:Sandra`. Andere Adressen werden abgewiesen. |
 | `DB_*` | MySQL-Zugangsdaten |
 | `SMTP_*`, `MAIL_FROM` | SMTP-Zugang für den Versand der Login-E-Mails |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Schlüsselpaar für Web Push (`php scripts/generate-vapid.php`) |
@@ -107,6 +110,12 @@ Ohne SMTP-Konfiguration wird der Magic Link stattdessen ins PHP-Error-Log geschr
    php /pfad/zu/eurer/domain/cron/dispatch-reminders.php
    ```
    Intervall möglichst 1 Minute (falls vom Hosting nicht erlaubt, alle 5 Minuten – Erinnerungen kommen dann bis zu 5 Minuten später an). Den genauen Serverpfad zeigt der Plesk-Dateimanager an.
+
+   **Zweite geplante Aufgabe für die Wochenmail**, z. B. montags um 07:00 (Cron-Stil `0 7 * * 1`):
+   ```
+   php /pfad/zu/eurer/domain/cron/weekly-digest.php
+   ```
+   Sie schickt jeder Person eine Übersicht ihrer offenen Aufgaben. Wer nichts Offenes hat, bekommt keine Mail. Ein zweiter Lauf innerhalb derselben Woche verschickt nichts doppelt.
 9. `https://<deine-subdomain>` im Browser öffnen. Auf dem iPhone: Safari → Teilen-Symbol → „Zum Home-Bildschirm“. Push-Benachrichtigungen funktionieren auf iOS erst ab iOS 16.4 und nur, wenn die App so installiert wurde (nicht im normalen Safari-Tab).
 
 ## Updates einspielen (bestehende Installation)

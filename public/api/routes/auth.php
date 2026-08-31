@@ -3,13 +3,19 @@ declare(strict_types=1);
 
 function auth_request_link(PDO $db, array $config, array $params): void
 {
-    $body = json_body();
-    $email = strtolower(trim((string) ($body['email'] ?? '')));
-    $displayName = trim((string) ($body['displayName'] ?? ''));
-    $inviteCode = strtoupper(trim((string) ($body['inviteCode'] ?? '')));
+    $email = strtolower(trim((string) (json_body()['email'] ?? '')));
 
     if ($email === '' || !str_contains($email, '@')) {
         json_response(['error' => 'Bitte eine gültige E-Mail-Adresse angeben.'], 400);
+    }
+
+    // Nur die in ALLOWED_USERS hinterlegten Adressen duerfen sich anmelden.
+    $allowed = $config['allowedUsers'];
+    if (!$allowed) {
+        json_response(['error' => 'Es ist noch keine Adresse freigeschaltet (ALLOWED_USERS fehlt).'], 500);
+    }
+    if (!isset($allowed[$email])) {
+        json_response(['error' => 'Diese E-Mail-Adresse ist nicht freigeschaltet.'], 403);
     }
 
     $stmt = $db->prepare('SELECT id FROM users WHERE email = ?');
@@ -17,25 +23,16 @@ function auth_request_link(PDO $db, array $config, array $params): void
     $userId = $stmt->fetchColumn();
 
     if (!$userId) {
-        if ($displayName === '') {
-            json_response(['error' => 'Bitte einen Namen angeben.'], 400);
-        }
-
-        if ($inviteCode !== '') {
-            $stmt = $db->prepare('SELECT id FROM families WHERE invite_code = ?');
-            $stmt->execute([$inviteCode]);
-            $familyId = $stmt->fetchColumn();
-            if (!$familyId) {
-                json_response(['error' => 'Einladungscode ungültig.'], 400);
-            }
-        } else {
+        // Alle Zugelassenen teilen sich denselben Haushalt; beim ersten Login anlegen.
+        $familyId = $db->query('SELECT id FROM families ORDER BY id LIMIT 1')->fetchColumn();
+        if (!$familyId) {
             $stmt = $db->prepare('INSERT INTO families (name, invite_code) VALUES (?, ?)');
-            $stmt->execute(["Familie $displayName", random_invite_code()]);
+            $stmt->execute(['Familie', random_invite_code()]);
             $familyId = (int) $db->lastInsertId();
         }
 
         $stmt = $db->prepare('INSERT INTO users (family_id, email, display_name) VALUES (?, ?, ?)');
-        $stmt->execute([$familyId, $email, $displayName]);
+        $stmt->execute([$familyId, $email, $allowed[$email]]);
         $userId = (int) $db->lastInsertId();
     }
 

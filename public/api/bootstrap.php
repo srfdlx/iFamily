@@ -16,6 +16,7 @@ require_once __DIR__ . '/routes/family.php';
 require_once __DIR__ . '/routes/tasks.php';
 require_once __DIR__ . '/routes/lists.php';
 require_once __DIR__ . '/routes/push.php';
+require_once __DIR__ . '/routes/sync.php';
 
 $config = require __DIR__ . '/config.php';
 $db = get_db($config);
