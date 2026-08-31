@@ -137,11 +137,10 @@ button, input, select, textarea { font: inherit; }
 .avatar.sm { width: 24px; height: 24px; font-size: 0.65rem; }
 
 /* ---------- Grundlayout ---------- */
+/* Volle Fensterbreite: die Seitenleiste sitzt buendig am linken Rand */
 .layout {
   display: flex;
   align-items: flex-start;
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
 .sidebar {
@@ -207,12 +206,6 @@ button, input, select, textarea { font: inherit; }
 .sidebar select {
   width: 100%;
   margin: 0;
-}
-
-.sidebar-foot {
-  border-top: 1px solid var(--border);
-  padding-top: 14px;
-  margin-top: 8px;
 }
 
 main {
@@ -368,13 +361,24 @@ main {
 .task-foot {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px 10px;
   margin-top: 11px;
   font-size: 0.78rem;
   color: var(--text-muted);
   flex-wrap: wrap;
 }
-.task-foot .spacer { margin-left: auto; }
+
+.task-foot .foot-left,
+.task-foot .foot-right {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+/* Bleibt rechts, auch wenn die Fusszeile auf zwei Zeilen umbricht */
+.task-foot .foot-right { margin-left: auto; }
+
 .task-foot .overdue { color: var(--danger); font-weight: 600; }
 
 .progress-chip {

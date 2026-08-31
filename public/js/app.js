@@ -99,14 +99,16 @@
     return m ? m.display_name : null;
   }
 
+  // Immer Datum und Uhrzeit; das Jahr nur, wenn es nicht das laufende ist.
   function fmtDate(value) {
     if (!value) return '';
     const d = new Date(value.replace(' ', 'T'));
-    const today = new Date();
-    const sameDay = d.toDateString() === today.toDateString();
-    return sameDay
-      ? d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
-      : d.toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const sameYear = d.getFullYear() === new Date().getFullYear();
+    const date = d.toLocaleDateString('de-CH', sameYear
+      ? { day: '2-digit', month: '2-digit' }
+      : { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const time = d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
+    return `${date}, ${time}`;
   }
 
   function toInputValue(value) {
@@ -402,10 +404,7 @@
             <option value="created" ${state.sort === 'created' ? 'selected' : ''}>Erstellungsdatum</option>
             <option value="title" ${state.sort === 'title' ? 'selected' : ''}>Titel</option>
           </select>
-        </div>`}
-      <div class="sidebar-foot">
-        <button class="filter-btn" id="ics-btn">${icon('clock', 17)}<span>Kalender exportieren (.ics)</span></button>
-      </div>`;
+        </div>`}`;
 
     sidebar.querySelectorAll('[data-filter]').forEach((el) => {
       el.onclick = () => {
@@ -426,7 +425,6 @@
     document.getElementById('drawer-close').onclick = closeDrawer;
     const sort = document.getElementById('sort');
     if (sort) sort.onchange = () => { state.sort = sort.value; renderContent(); };
-    document.getElementById('ics-btn').onclick = () => { exportIcs(); closeDrawer(); };
   }
 
   // ---------- Inhalt ----------
@@ -526,13 +524,16 @@
           <div class="task-title">${escapeHtml(task.title)}</div>
           ${task.notes ? `<div class="task-notes">${escapeHtml(task.notes)}</div>` : ''}
           <div class="task-foot">
-            ${assignee ? `${avatarHtml(assignee, 'sm')}<span>${escapeHtml(assignee)}</span>` : `${icon('user', 14)}<span>Nicht zugewiesen</span>`}
-            ${task.status === 'in_arbeit' && starter ? `<span>· ${escapeHtml(starter)} ist dran</span>` : ''}
-            <span class="spacer"></span>
-            ${items.length ? `<span class="progress-chip">${icon('cart', 13)}${doneItems}/${items.length}</span>` : ''}
-            ${task.recurrence_rule ? `<span title="${labelOf(RECURRENCES, task.recurrence_rule)}">${icon('repeat', 13)}</span>` : ''}
-            ${task.remind_at && !isDone ? `<span title="Erinnerung ${fmtDate(task.remind_at)}">${icon('bell', 13)}</span>` : ''}
-            ${task.due_at ? `<span class="${isOverdue(task) ? 'overdue' : ''}">${icon('clock', 13)} ${fmtDate(task.due_at)}</span>` : ''}
+            <span class="foot-left">
+              ${assignee ? `${avatarHtml(assignee, 'sm')}<span>${escapeHtml(assignee)}</span>` : `${icon('user', 14)}<span>Nicht zugewiesen</span>`}
+              ${task.status === 'in_arbeit' && starter && starter !== assignee ? `<span>· ${escapeHtml(starter)} ist dran</span>` : ''}
+            </span>
+            <span class="foot-right">
+              ${items.length ? `<span class="progress-chip">${icon('cart', 13)}${doneItems}/${items.length}</span>` : ''}
+              ${task.recurrence_rule ? `<span title="${labelOf(RECURRENCES, task.recurrence_rule)}">${icon('repeat', 13)}</span>` : ''}
+              ${task.remind_at && !isDone ? `<span title="Erinnerung">${icon('bell', 13)} ${fmtDate(task.remind_at)}</span>` : ''}
+              ${task.due_at ? `<span class="${isOverdue(task) ? 'overdue' : ''}" title="Fällig">${icon('clock', 13)} ${fmtDate(task.due_at)}</span>` : ''}
+            </span>
           </div>
         </div>
       </article>`;
@@ -717,6 +718,7 @@
             <select id="t-recurrence">${options(RECURRENCES, task ? (task.recurrence_rule || '') : '')}</select>
 
             <button type="submit" class="btn btn-primary btn-block" style="margin-top:6px">${task ? 'Änderungen speichern' : 'Aufgabe erstellen'}</button>
+            ${task && task.due_at ? `<button type="button" class="btn btn-block" id="task-ics" style="margin-top:8px">${icon('clock', 16)} In den Kalender eintragen</button>` : ''}
             ${task ? '<button type="button" class="btn btn-danger btn-block" id="delete-task" style="margin-top:8px">Aufgabe löschen</button>' : ''}
           </form>
         </div>
@@ -794,6 +796,9 @@
         document.querySelectorAll('#t-status button').forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
       };
     });
+
+    const ics = document.getElementById('task-ics');
+    if (ics) ics.onclick = () => exportTaskIcs(task);
 
     const del = document.getElementById('delete-task');
     if (del) {
@@ -881,38 +886,45 @@
     return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
   }
 
-  function exportIcs() {
-    const withDate = state.tasks.filter((t) => t.due_at && t.status !== 'erledigt');
-    if (!withDate.length) {
-      alert('Keine Aufgaben mit Fälligkeitsdatum vorhanden.');
+  // Termin einer einzelnen Aufgabe als .ics herunterladen. Auf dem iPhone
+  // bietet Safari die Datei direkt der Kalender-App an.
+  function exportTaskIcs(task) {
+    if (!task.due_at) {
+      alert('Diese Aufgabe hat kein Fälligkeitsdatum – dafür lässt sich kein Kalendereintrag erzeugen.');
       return;
     }
 
     const rrule = { taeglich: 'DAILY', woechentlich: 'WEEKLY', monatlich: 'MONTHLY' };
     const escapeIcs = (s) => String(s || '').replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
 
-    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//iFamily//DE', 'CALSCALE:GREGORIAN'];
-    for (const task of withDate) {
-      lines.push('BEGIN:VEVENT');
-      lines.push(`UID:ifamily-${task.id}@${location.hostname}`);
-      lines.push(`DTSTAMP:${icsStamp(null)}`);
-      lines.push(`DTSTART:${icsStamp(task.due_at)}`);
-      lines.push(`SUMMARY:${escapeIcs(task.title)}`);
-      if (task.notes) lines.push(`DESCRIPTION:${escapeIcs(task.notes)}`);
-      if (task.recurrence_rule) lines.push(`RRULE:FREQ=${rrule[task.recurrence_rule]}`);
-      if (task.remind_lead_minutes) {
-        lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `TRIGGER:-PT${task.remind_lead_minutes}M`,
-          `DESCRIPTION:${escapeIcs(task.title)}`, 'END:VALARM');
-      }
-      lines.push('END:VEVENT');
+    const lines = [
+      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//iFamily//DE', 'CALSCALE:GREGORIAN',
+      'BEGIN:VEVENT',
+      `UID:ifamily-${task.id}@${location.hostname}`,
+      `DTSTAMP:${icsStamp(null)}`,
+      `DTSTART:${icsStamp(task.due_at)}`,
+      `DURATION:PT1H`,
+      `SUMMARY:${escapeIcs(task.title)}`
+    ];
+    if (task.notes) lines.push(`DESCRIPTION:${escapeIcs(task.notes)}`);
+    if (task.recurrence_rule) lines.push(`RRULE:FREQ=${rrule[task.recurrence_rule]}`);
+    if (task.remind_lead_minutes) {
+      lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `TRIGGER:-PT${task.remind_lead_minutes}M`,
+        `DESCRIPTION:${escapeIcs(task.title)}`, 'END:VALARM');
     }
-    lines.push('END:VCALENDAR');
+    lines.push('END:VEVENT', 'END:VCALENDAR');
+
+    const name = (task.title || 'aufgabe')
+      .toLowerCase()
+      .replace(/[äöüß]/g, (c) => ({ 'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss' }[c]))
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'aufgabe';
 
     const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'ifamily-aufgaben.ics';
+    a.download = `${name}.ics`;
     document.body.appendChild(a);
     a.click();
     a.remove();

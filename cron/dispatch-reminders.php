@@ -1,8 +1,10 @@
 <?php
 declare(strict_types=1);
 
-// Ueber Plesk "Geplante Aufgaben" alle 1-5 Minuten aufrufen:
+// Ueber Plesk "Geplante Aufgaben" aufrufen, am besten jede Minute ("* * * * *"):
 //   /usr/bin/php /pfad/zu/ifamily/cron/dispatch-reminders.php
+// Je groesser der Abstand, desto spaeter kommen Erinnerungen an - bei einem
+// 5-Minuten-Takt bis zu 5 Minuten nach der eingestellten Zeit.
 
 require_once __DIR__ . '/../public/api/bootstrap.php';
 
@@ -11,10 +13,12 @@ require_once __DIR__ . '/../public/api/bootstrap.php';
 // in welcher Zeitzone der Datenbankserver selbst laeuft.
 $now = (new DateTimeImmutable())->format('Y-m-d H:i:s');
 
+// Auch Aufgaben, die jemand schon angefangen hat ("in Arbeit"), brauchen ihre
+// Erinnerung - nur wirklich erledigte nicht.
 $stmt = $db->prepare(
     "SELECT id, family_id, title, assigned_to, due_at
      FROM tasks
-     WHERE status = 'offen' AND remind_at IS NOT NULL AND remind_at <= ? AND reminder_sent_at IS NULL"
+     WHERE status <> 'erledigt' AND remind_at IS NOT NULL AND remind_at <= ? AND reminder_sent_at IS NULL"
 );
 $stmt->execute([$now]);
 $dueTasks = $stmt->fetchAll();
