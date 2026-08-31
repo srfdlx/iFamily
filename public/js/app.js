@@ -7,8 +7,6 @@
     user: null,
     family: null,
     tasks: [],
-    lists: [],
-    view: 'tasks', // 'tasks' | 'lists'
     filters: { status: 'aktiv', assignee: 'alle', priority: 'alle', category: 'alle' },
     sort: 'due',
     search: '',
@@ -156,13 +154,12 @@
 
   async function loadAll() {
     const version = await currentVersion();
-    const [me, family, taskRes, listRes] = await Promise.all([
-      api('/auth/me'), api('/family'), api('/tasks'), api('/lists')
+    const [me, family, taskRes] = await Promise.all([
+      api('/auth/me'), api('/family'), api('/tasks')
     ]);
     state.user = me.user;
     state.family = family;
     state.tasks = taskRes.tasks;
-    state.lists = listRes.lists;
     syncVersion = version;
   }
 
@@ -172,11 +169,6 @@
   const refreshTasks = async () => {
     const version = await currentVersion();
     state.tasks = (await api('/tasks')).tasks;
-    syncVersion = version;
-  };
-  const refreshLists = async () => {
-    const version = await currentVersion();
-    state.lists = (await api('/lists')).lists;
     syncVersion = version;
   };
 
@@ -260,7 +252,7 @@
     app.innerHTML = `
       <div class="auth-screen">
         <h1>iFamily</h1>
-        <p class="subtitle">Aufgaben &amp; Listen für die ganze Familie</p>
+        <p class="subtitle">Aufgaben für die ganze Familie</p>
         <form class="auth-card" id="login-form">
           <label for="email">E-Mail-Adresse</label>
           <input type="email" id="email" required placeholder="du@beispiel.ch" autocomplete="email" />
@@ -374,11 +366,6 @@
         <strong>Navigation</strong>
         <button class="icon-btn" id="drawer-close" aria-label="Navigation schliessen">${icon('close', 18)}</button>
       </div>
-      ${group('Ansicht',
-        `<button class="filter-btn" data-view="tasks" aria-pressed="${state.view === 'tasks'}">${icon('check', 17)}<span>Aufgaben</span></button>
-         <button class="filter-btn" data-view="lists" aria-pressed="${state.view === 'lists'}">${icon('cart', 17)}<span>Sammellisten</span><span class="count">${state.lists.length}</span></button>`
-      )}
-      ${state.view !== 'tasks' ? '' : `
         ${group('Status',
           btn('aktiv', 'status', 'Alle offenen', 'inbox', countBy((t) => t.status !== 'erledigt')) +
           STATUS.map((s) => btn(s.key, 'status', s.label, s.key === 'erledigt' ? 'check' : s.key === 'in_arbeit' ? 'user' : 'inbox', countBy((t) => t.status === s.key))).join('')
@@ -404,19 +391,11 @@
             <option value="created" ${state.sort === 'created' ? 'selected' : ''}>Erstellungsdatum</option>
             <option value="title" ${state.sort === 'title' ? 'selected' : ''}>Titel</option>
           </select>
-        </div>`}`;
+        </div>`;
 
     sidebar.querySelectorAll('[data-filter]').forEach((el) => {
       el.onclick = () => {
         state.filters[el.dataset.filter] = el.dataset.value;
-        closeDrawer();
-        renderSidebar();
-        renderContent();
-      };
-    });
-    sidebar.querySelectorAll('[data-view]').forEach((el) => {
-      el.onclick = () => {
-        state.view = el.dataset.view;
         closeDrawer();
         renderSidebar();
         renderContent();
@@ -460,7 +439,6 @@
   function renderContent() {
     const content = document.getElementById('content');
     if (!content) return;
-    if (state.view === 'lists') return renderListsView(content);
 
     const tasks = visibleTasks();
     const active = tasks.filter((t) => t.status !== 'erledigt');
@@ -537,70 +515,6 @@
           </div>
         </div>
       </article>`;
-  }
-
-  // ---------- Sammellisten ----------
-  function renderListsView(content) {
-    content.innerHTML = `
-      <button class="btn btn-primary" id="new-list-btn" style="margin-bottom:14px">${icon('plus', 17)} Neue Liste</button>
-      ${state.lists.length ? state.lists.map((list) => `
-        <section class="panel">
-          <h2>${escapeHtml(list.name)}</h2>
-          ${list.items.map((item) => `
-            <div class="shopping-row">
-              <button class="tick ${Number(item.checked) ? 'checked' : ''}" data-toggle-item="${list.id}:${item.id}"
-                      aria-label="${Number(item.checked) ? 'Nicht erledigt' : 'Erledigt'}">${icon('check', 12)}</button>
-              <span class="text ${Number(item.checked) ? 'checked' : ''}">${escapeHtml(item.text)}</span>
-              <button class="icon-btn" data-del-item="${list.id}:${item.id}" aria-label="Eintrag löschen">${icon('trash', 15)}</button>
-            </div>`).join('') || '<p class="hint-text">Noch keine Einträge.</p>'}
-          <form class="shopping-add" data-add-item="${list.id}">
-            <label class="visually-hidden" for="add-${list.id}">Eintrag hinzufügen</label>
-            <input id="add-${list.id}" type="text" placeholder="Hinzufügen …" required />
-            <button type="submit" class="btn">${icon('plus', 16)}</button>
-          </form>
-        </section>`).join('')
-        : '<div class="empty-state">Noch keine Sammelliste angelegt.</div>'}`;
-
-    document.getElementById('new-list-btn').onclick = async () => {
-      const name = prompt('Name der Liste:');
-      if (!name || !name.trim()) return;
-      await api('/lists', { method: 'POST', body: JSON.stringify({ name }) });
-      await refreshLists();
-      renderContent();
-      renderSidebar();
-    };
-
-    content.querySelectorAll('[data-toggle-item]').forEach((el) => {
-      el.onclick = async () => {
-        const [listId, itemId] = el.dataset.toggleItem.split(':');
-        const list = state.lists.find((l) => l.id === Number(listId));
-        const item = list.items.find((i) => i.id === Number(itemId));
-        await api(`/lists/${listId}/items/${itemId}`, { method: 'PATCH', body: JSON.stringify({ checked: !Number(item.checked) }) });
-        await refreshLists();
-        renderContent();
-      };
-    });
-
-    content.querySelectorAll('[data-del-item]').forEach((el) => {
-      el.onclick = async () => {
-        const [listId, itemId] = el.dataset.delItem.split(':');
-        await api(`/lists/${listId}/items/${itemId}`, { method: 'DELETE' });
-        await refreshLists();
-        renderContent();
-      };
-    });
-
-    content.querySelectorAll('[data-add-item]').forEach((form) => {
-      form.onsubmit = async (event) => {
-        event.preventDefault();
-        const input = form.querySelector('input');
-        const text = input.value.trim();
-        if (!text) return;
-        await api(`/lists/${form.dataset.addItem}/items`, { method: 'POST', body: JSON.stringify({ text }) });
-        await refreshLists();
-        renderContent();
-      };
-    });
   }
 
   // ---------- Dialoge ----------
@@ -945,7 +859,6 @@
       if (version === null || version === syncVersion) return;
 
       await refreshTasks();
-      await refreshLists();
       renderContent();
       renderSidebar();
     } catch (err) {

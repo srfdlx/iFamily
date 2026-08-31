@@ -1,7 +1,7 @@
 {
   "name": "iFamily",
   "short_name": "iFamily",
-  "description": "Familien-Aufgabenplaner: Tasks zuweisen, erinnern, gemeinsame Sammellisten",
+  "description": "Familien-Aufgabenplaner: Aufgaben zuweisen, erinnern, Einkäufe in der Aufgabe sammeln",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

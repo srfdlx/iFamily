@@ -1,6 +1,6 @@
 # iFamily
 
-Familien-Aufgabenplaner: Aufgaben zuweisen, Erinnerungen erhalten, gemeinsame Sammellisten führen – als installierbare Web-App (PWA), auch für iOS, ohne App Store.
+Familien-Aufgabenplaner: Aufgaben zuweisen, Erinnerungen erhalten, Einkäufe direkt in der Aufgabe sammeln – als installierbare Web-App (PWA), auch für iOS, ohne App Store.
 
 ## Funktionsumfang (MVP)
 
@@ -13,7 +13,6 @@ Familien-Aufgabenplaner: Aufgaben zuweisen, Erinnerungen erhalten, gemeinsame Sa
 - **Aufgaben bearbeiten und löschen**: Tippen auf eine Aufgabe öffnet alle Felder
 - **Erinnerungen** per Push-Benachrichtigung: entweder zu einer festen Uhrzeit oder mit Vorlaufzeit vor der Fälligkeit
 - **Wiederkehrende Aufgaben** (täglich / wöchentlich / monatlich) – beim Abhaken wird automatisch die nächste Aufgabe erzeugt
-- **Sammellisten** (z. B. Einkaufsliste), die alle Familienmitglieder gemeinsam befüllen und abhaken können
 - **Login nur mit E-Mail-Adresse** (kein Passwort, kein Name, keine Registrierung), danach eine langlebige Sitzung
 - **Feste Zulassungsliste**: nur die in `ALLOWED_USERS` hinterlegten Adressen bekommen überhaupt einen Code. Beim ersten Login wird der Zugang automatisch angelegt.
 - **Automatischer Abgleich** zwischen Geräten: Änderungen der anderen Person erscheinen nach wenigen Sekunden von selbst, ohne Neuladen
@@ -46,7 +45,7 @@ public/             Document Root – hierhin zeigt die Domain/Subdomain
   api/              PHP-Backend
     index.php       Front-Controller/Router
     config.php, db.php, auth.php, mailer.php, push.php, helpers.php, env.php
-    routes/         Route-Handler (auth, family, tasks, lists, push)
+    routes/         Route-Handler (auth, family, tasks, push, sync)
   .htaccess         Leitet /api/* an api/index.php, schützt .env/vendor/cron
 cron/
   dispatch-reminders.php   CLI-Skript für fällige Erinnerungen (per Cron aufrufen)

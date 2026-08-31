@@ -24,13 +24,6 @@ $routes = [
     ['PATCH', '#^/tasks/(\d+)/items/(\d+)$#', 'tasks_update_item'],
     ['DELETE', '#^/tasks/(\d+)/items/(\d+)$#', 'tasks_delete_item'],
 
-    ['GET', '#^/lists$#', 'lists_list'],
-    ['POST', '#^/lists$#', 'lists_create'],
-    ['DELETE', '#^/lists/(\d+)$#', 'lists_delete'],
-    ['POST', '#^/lists/(\d+)/items$#', 'lists_add_item'],
-    ['PATCH', '#^/lists/(\d+)/items/(\d+)$#', 'lists_update_item'],
-    ['DELETE', '#^/lists/(\d+)/items/(\d+)$#', 'lists_delete_item'],
-
     ['GET', '#^/sync/version$#', 'sync_version'],
 
     ['GET', '#^/push/public-key$#', 'push_public_key'],
