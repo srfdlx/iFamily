@@ -112,6 +112,9 @@ Ohne SMTP-Konfiguration wird der Magic Link stattdessen ins PHP-Error-Log geschr
    phpMyAdmin unter *SQL* ausführen. Sie ändern nur die Struktur und lassen bestehende Daten
    unangetastet. Bereits eingespielte Migrationen nicht erneut ausführen.
 3. Nur wenn sich `composer.json` geändert hat: Composer im Plesk-Panel erneut ausführen.
+4. In der App einmal neu laden. Der Service Worker holt Dateien immer zuerst vom
+   Server (Cache dient nur als Offline-Reserve), erkennt die neue Version selbst
+   und lädt die Seite einmal automatisch neu.
 
 ## Offene Punkte für den produktiven Einsatz
 

@@ -642,6 +642,16 @@
 
   // ---------- Init ----------
   if ('serviceWorker' in navigator) {
+    // War beim Start schon ein Service Worker aktiv, ist ein Wechsel eine neue
+    // Version - dann einmal neu laden, damit man das Update sofort sieht, statt
+    // die App zweimal schliessen zu muessen. Beim allerersten Besuch nicht.
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloading) return;
+      reloading = true;
+      window.location.reload();
+    });
     navigator.serviceWorker.register('/service-worker.js').catch((err) => console.error('SW-Fehler:', err));
   }
 
