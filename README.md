@@ -4,7 +4,11 @@ Familien-Aufgabenplaner: Aufgaben zuweisen, Erinnerungen erhalten, gemeinsame Sa
 
 ## Funktionsumfang (MVP)
 
-- **Aufgaben zuweisen** an ein Familienmitglied, mit Titel, Notiz und optionalem Fälligkeitsdatum
+- **Aufgaben zuweisen** an ein Familienmitglied, mit Titel, Beschreibung, Priorität (Hoch/Mittel/Niedrig), Kategorie (Allgemein/Einkauf/Haushalt/Persönlich) und optionalem Fälligkeitsdatum
+- **Einkaufsliste in der Aufgabe**: Kategorie „Einkauf“ wählen, dann lassen sich Artikel direkt in der Aufgabe erfassen und abhaken. Die Karte zeigt den Fortschritt (z. B. 1/5).
+- **Suchen, filtern, sortieren** nach Status, Zuweisung, Priorität und Kategorie
+- **Hell- und Dunkelmodus**, umschaltbar in der Kopfzeile, Einstellung wird gespeichert
+- **Kalender-Export** aller Aufgaben mit Fälligkeitsdatum als `.ics` (inkl. Wiederholung und Erinnerung)
 - **Drei Status wie am Kanban-Board**: Zu erledigen → In Arbeit → Erledigt. Bei „In Arbeit“ wird festgehalten, wer übernommen hat („Mami ist dran“), damit niemand doppelt anfängt. Tippen auf den Kreis schaltet weiter.
 - **Aufgaben bearbeiten und löschen**: Tippen auf eine Aufgabe öffnet alle Felder
 - **Erinnerungen** per Push-Benachrichtigung: entweder zu einer festen Uhrzeit oder mit Vorlaufzeit vor der Fälligkeit

@@ -20,6 +20,9 @@ $routes = [
     ['POST', '#^/tasks$#', 'tasks_create'],
     ['PATCH', '#^/tasks/(\d+)$#', 'tasks_update'],
     ['DELETE', '#^/tasks/(\d+)$#', 'tasks_delete'],
+    ['POST', '#^/tasks/(\d+)/items$#', 'tasks_add_item'],
+    ['PATCH', '#^/tasks/(\d+)/items/(\d+)$#', 'tasks_update_item'],
+    ['DELETE', '#^/tasks/(\d+)/items/(\d+)$#', 'tasks_delete_item'],
 
     ['GET', '#^/lists$#', 'lists_list'],
     ['POST', '#^/lists$#', 'lists_create'],
